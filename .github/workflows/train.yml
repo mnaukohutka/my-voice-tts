@@ -1,0 +1,33 @@
+name: Train TTS Model
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      
+      - name: Install dependencies
+        run: |
+          pip install TTS torch torchaudio pydub
+      
+      - name: Train model
+        run: |
+          python train_model.py
+      
+      - name: Push model
+        run: |
+          git config user.name "TTS Bot"
+          git config user.email "bot@github.com"
+          git add models/ || true
+          git commit -m "Auto-trained TTS model" || true
+          git push
