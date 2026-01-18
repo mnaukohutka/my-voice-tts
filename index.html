@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nahrávání hlasu pro TTS</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        .subtitle {
+            color: #999;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        input[type="text"], input[type="email"], textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            font-family: inherit;
+            transition: border-color 0.3s;
+        }
+        input:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+        .record-section {
+            background: #f8f9ff;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            border: 2px dashed #667eea;
+        }
+        button {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 10px;
+        }
+        .btn-record {
+            background: #667eea;
+            color: white;
+        }
+        .btn-record:active {
+            background: #5568d3;
+            transform: scale(0.98);
+        }
+        .btn-stop {
+            background: #e74c3c;
+            color: white;
+        }
+        .btn-upload {
+            background: #27ae60;
+            color: white;
+        }
+        .btn-upload:hover {
+            background: #229954;
+        }
+        .status {
+            text-align: center;
+            color: #667eea;
+            font-size: 14px;
+            margin: 10px 0;
+            min-height: 20px;
+        }
+        .success {
+            color: #27ae60;
+        }
+        .error {
+            color: #e74c3c;
+        }
+        audio {
+            width: 100%;
+            margin: 10px 0;
+            border-radius: 8px;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎤 Nahrávání hlasu</h1>
+        <p class="subtitle">Zaznamenejte své hlasové vzorky pro trénink TTS modelu</p>
+        
+        <form name="voice-recording" method="POST" netlify>
+            <div class="form-group">
+                <label for="name">Vaše jméno:</label>
+                <input type="text" id="name" name="name" required placeholder="Jan Novák">
+            </div>
+
+            <div class="form-group">
+                <label for="email">Email (pro kontakt):</label>
+                <input type="email" id="email" name="email" required placeholder="vam@email.com">
+            </div>
+
+            <div class="form-group">
+                <label for="text">Přečtěte tento text:</label>
+                <textarea id="text" name="text" required placeholder="Zde bude text k nahrání...">Umělá inteligence je fascinující obor.</textarea>
+            </div>
+
+            <div class="record-section">
+                <button type="button" class="btn-record" id="recordBtn" onclick="startRecording()">🔴 Začít nahrávání</button>
+                <button type="button" class="btn-stop hidden" id="stopBtn" onclick="stopRecording()">⏹ Zastavit</button>
+                <div class="status" id="status"></div>
+                <audio id="audioPlayback" class="hidden"></audio>
+            </div>
+
+            <div class="form-group">
+                <input type="hidden" id="audioData" name="audio_file" value="">
+                <button type="submit" class="btn-upload" id="uploadBtn" disabled>📤 Nahrát nahrávku</button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        let mediaRecorder;
+        let audioChunks = [];
+
+        async function startRecording() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+
+                mediaRecorder.ondataavailable = (event) => {
+                    audioChunks.push(event.data);
+                };
+
+                mediaRecorder.onstop = () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                    const audioUrl = URL.createObjectURL(audioBlob);
+                    const audio = document.getElementById('audioPlayback');
+                    audio.src = audioUrl;
+                    audio.classList.remove('hidden');
+                    document.getElementById('uploadBtn').disabled = false;
+                    document.getElementById('status').textContent = '✅ Nahrávka připravena';
+                    document.getElementById('status').classList.add('success');
+                };
+
+                mediaRecorder.start();
+                document.getElementById('recordBtn').classList.add('hidden');
+                document.getElementById('stopBtn').classList.remove('hidden');
+                document.getElementById('status').textContent = '🔴 Nahrávám...';
+                document.getElementById('status').classList.remove('success', 'error');
+            } catch (error) {
+                document.getElementById('status').textContent = '❌ Chyba: Povolte přístup k mikrofonu!';
+                document.getElementById('status').classList.add('error');
+            }
+        }
+
+        function stopRecording() {
+            mediaRecorder.stop();
+            document.getElementById('stopBtn').classList.add('hidden');
+            document.getElementById('recordBtn').classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
